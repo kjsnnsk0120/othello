@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>TypeScriptで作るオセロ</title>
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    /* 盤面の背景のみ緑 */
+    #board {
+      background-color: green;
+      display: inline-block;
+      padding: 5px;
+    }
+    .row {
+      display: flex;
+    }
+    .cell {
+      width: 50px;
+      height: 50px;
+      border: 1px solid #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      background-color: green;
+    }
+    /* 円形の石のスタイル */
+    .stone {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <h1>TypeScriptで作るオセロ</h1>
+  <!-- 現在の手番表示 -->
+  <div id="turn"></div>
+  <!-- 盤面 -->
+  <div id="board"></div>
+  <!-- コンパイル済み JavaScript (othello.js) を読み込む -->
+  <script src="othello.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const game = new OthelloGame();
+      const boardElement = document.getElementById("board");
+      const turnElement = document.getElementById("turn");
+
+      // 現在の手番表示を更新する
+      const updateTurnDisplay = () => {
+        if (!turnElement) return;
+        turnElement.innerText = `現在の手番: ${game.currentPlayer === Piece.Black ? "黒（人間）" : "白（コンピュータ）"}`;
+      };
+
+      // ゲーム終了時に結果を表示する
+      const checkGameOver = () => {
+        const totalPieces = game.countPieces().black + game.countPieces().white;
+        if (game.isGameOver() || totalPieces === game.boardSize * game.boardSize) {
+          const { black, white } = game.countPieces();
+          const msg = `ゲーム終了！ 黒: ${black}、白: ${white}`;
+          console.log(msg);
+          alert(msg);
+          return true;
+        }
+        return false;
+      };
+
+      // 現在の手番に有効な手がない場合はパスする処理
+      // ※ここでは、50msの遅延後に判定することで、最新の盤面が反映された後にチェックを行います
+      const advanceTurn = () => {
+        setTimeout(() => {
+          if (game.isGameOver() || (game.countPieces().black + game.countPieces().white === game.boardSize * game.boardSize)) {
+            checkGameOver();
+            return;
+          }
+          if (game.getValidMoves(game.currentPlayer).length === 0) {
+            console.log(`${game.currentPlayer === Piece.Black ? "黒" : "白"}は打てる手がありません。パスします。`);
+            game.currentPlayer = game.currentPlayer === Piece.Black ? Piece.White : Piece.Black;
+            updateTurnDisplay();
+            if (game.getValidMoves(game.currentPlayer).length === 0 ||
+                (game.countPieces().black + game.countPieces().white === game.boardSize * game.boardSize)) {
+              checkGameOver();
+              return;
+            }
+            if (game.currentPlayer === Piece.White) {
+              setTimeout(computerMove, 500);
+            }
+          } else {
+            if (game.currentPlayer === Piece.White) {
+              setTimeout(computerMove, 500);
+            }
+          }
+        }, 50);
+      };
+
+      // 盤面の描画
+      const renderBoard = () => {
+        if (!boardElement) return;
+        boardElement.innerHTML = "";
+        for (let i = 0; i < game.boardSize; i++) {
+          const row = document.createElement("div");
+          row.className = "row";
+          for (let j = 0; j < game.boardSize; j++) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.x = i.toString();
+            cell.dataset.y = j.toString();
+            const piece = game.board[i][j];
+            if (piece === Piece.Black) {
+              const stone = document.createElement("div");
+              stone.className = "stone";
+              stone.style.backgroundColor = "black";
+              cell.appendChild(stone);
+            } else if (piece === Piece.White) {
+              const stone = document.createElement("div");
+              stone.className = "stone";
+              stone.style.backgroundColor = "white";
+              cell.appendChild(stone);
+            }
+            // 人間（黒）のターンかつ空セルの場合のみクリック可能にする
+            if (game.currentPlayer === Piece.Black && piece === Piece.Empty) {
+              cell.addEventListener("click", () => {
+                if (game.makeMove(i, j)) {
+                  renderBoard();
+                  updateTurnDisplay();
+                  advanceTurn();
+                }
+              });
+            }
+            row.appendChild(cell);
+          }
+          boardElement.appendChild(row);
+        }
+      };
+
+      // コンピュータ（白）の手を実行
+      const computerMove = () => {
+        if (game.currentPlayer !== Piece.White) return;
+        const bestMove = game.getBestMove(Piece.White);
+        if (bestMove) {
+          game.makeMove(bestMove.x, bestMove.y);
+          renderBoard();
+          updateTurnDisplay();
+          advanceTurn();
+        } else {
+          // 白に有効な手がなければパスして黒へ
+          game.currentPlayer = Piece.Black;
+          updateTurnDisplay();
+          advanceTurn();
+        }
+      };
+
+      // 初回描画と表示更新
+      renderBoard();
+      updateTurnDisplay();
+      // ※ 初手は人間（黒）の入力を待つ
+    });
+  </script>
+</body>
+</html>
