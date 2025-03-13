@@ -108,21 +108,53 @@ class OthelloGame {
 
   // (1) 静的評価：マスごとの値を返す
   getStaticValue(i: number, j: number): number {
-    if ((i === 0 && j === 0) || (i === 0 && j === this.boardSize - 1) ||
-        (i === this.boardSize - 1 && j === 0) || (i === this.boardSize - 1 && j === this.boardSize - 1)) {
-      return 100;
+    if ((i === 0 && j === 0) || (i === 0 && j === 7) ||
+        (i === 7 && j === 0) || (i === 7 && j === 7)) {
+      return 10000;
     }
-    if ((i === 1 && j === 1) || (i === 1 && j === this.boardSize - 2) ||
-        (i === this.boardSize - 2 && j === 1) || (i === this.boardSize - 2 && j === this.boardSize - 2)) {
-      return -30;
+    if (this.board[0][0] === Piece.Empty){
+      if(i === 1 && j === 1){
+        return -700;
+      }
+      if ((i === 0 && j === 1) || (i === 1 && j === 0)) {
+        return -500;
+      }
     }
-    if ((i === 0 && (j === 2 || j === 5)) || (i === this.boardSize - 1 && (j === 2 || j === 5))) {
+    if (this.board[0][7] === Piece.Empty){
+      if(i === 1 && j === 6){
+        return -700;
+      }
+      if ((i === 0 && j === 6) || (i === 1 && j === 7)) {
+        return -500;
+      }
+    }
+    if (this.board[7][0] === Piece.Empty){
+      if(i === 6 && j === 1){
+        return -700;
+      }
+      if ((i === 6 && j === 0) || (i === 7 && j === 1)) {
+        return -500;
+      }
+    }
+    if (this.board[7][7] === Piece.Empty){
+      if(i === 6 && j === 6){
+        return -700;
+      }
+      if ((i === 6 && j === 7) || (i === 7 && j === 6)) {
+        return -500;
+      }
+    }
+    
+    if ((i === 0 && (j === 2 || j === 5)) ||
+        (i === 7 && (j === 2 || j === 5)) ||
+        (j === 0 && (i === 2 || i === 5)) ||
+        (j === 7 && (i === 2 || i === 5))) {
       return 10;
     }
-    if (i === 0 || i === this.boardSize - 1 || j === 0 || j === this.boardSize - 1) {
+    if (i === 0 || i === 7 || j === 0 || j === 7) {
       return 5;
     }
-    if (i >= 2 && i <= 5 && j >= 2 && j <= 5) {
+    if (2 <= i && i <= 5 && 2 <= j && j <= 5) {
       return 3;
     }
     return -5;

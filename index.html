@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>TypeScriptで作るオセロ</title>
+  <title>ChatGPTに作らせたオセロ</title>
   <style>
     body {
       font-family: sans-serif;
@@ -35,7 +35,7 @@
   </style>
 </head>
 <body>
-  <h1>TypeScriptで作るオセロ</h1>
+  <h1>ChatGPTに作らせたオセロ</h1>
   <!-- 現在の手番表示 -->
   <div id="turn"></div>
   <!-- 盤面 -->
@@ -78,14 +78,7 @@
             console.log(`${game.currentPlayer === Piece.Black ? "黒" : "白"}は打てる手がありません。パスします。`);
             game.currentPlayer = game.currentPlayer === Piece.Black ? Piece.White : Piece.Black;
             updateTurnDisplay();
-            if (game.getValidMoves(game.currentPlayer).length === 0 ||
-                (game.countPieces().black + game.countPieces().white === game.boardSize * game.boardSize)) {
-              checkGameOver();
-              return;
-            }
-            if (game.currentPlayer === Piece.White) {
-              setTimeout(computerMove, 500);
-            }
+            advanceTurn();
           } else {
             if (game.currentPlayer === Piece.White) {
               setTimeout(computerMove, 500);
