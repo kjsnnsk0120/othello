@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>ChatGPTに作らせたオセロ</title>
+  <title>TypeScriptで作るオセロ</title>
   <style>
     body {
       font-family: sans-serif;
@@ -35,7 +35,7 @@
   </style>
 </head>
 <body>
-  <h1>ChatGPTに作らせたオセロ</h1>
+  <h1>TypeScriptで作るオセロ</h1>
   <!-- 現在の手番表示 -->
   <div id="turn"></div>
   <!-- 盤面 -->
@@ -48,13 +48,13 @@
       const boardElement = document.getElementById("board");
       const turnElement = document.getElementById("turn");
 
-      // 現在の手番表示を更新する
+      // 現在の手番表示更新
       const updateTurnDisplay = () => {
         if (!turnElement) return;
         turnElement.innerText = `現在の手番: ${game.currentPlayer === Piece.Black ? "黒（人間）" : "白（コンピュータ）"}`;
       };
 
-      // ゲーム終了時に結果を表示する
+      // ゲーム終了時、最後の石が表示された後に結果を出力
       const checkGameOver = () => {
         const totalPieces = game.countPieces().black + game.countPieces().white;
         if (game.isGameOver() || totalPieces === game.boardSize * game.boardSize) {
@@ -67,8 +67,7 @@
         return false;
       };
 
-      // 現在の手番に有効な手がない場合はパスする処理
-      // ※ここでは、50msの遅延後に判定することで、最新の盤面が反映された後にチェックを行います
+      // 現在の手番に有効な手がなければパス、または白なら自動実行
       const advanceTurn = () => {
         setTimeout(() => {
           if (game.isGameOver() || (game.countPieces().black + game.countPieces().white === game.boardSize * game.boardSize)) {
@@ -119,7 +118,7 @@
               stone.style.backgroundColor = "white";
               cell.appendChild(stone);
             }
-            // 人間（黒）のターンかつ空セルの場合のみクリック可能にする
+            // 人間（黒）のターンかつ空セルならクリック可能
             if (game.currentPlayer === Piece.Black && piece === Piece.Empty) {
               cell.addEventListener("click", () => {
                 if (game.makeMove(i, j)) {
@@ -152,10 +151,9 @@
         }
       };
 
-      // 初回描画と表示更新
+      // 初回描画・表示更新
       renderBoard();
       updateTurnDisplay();
-      // ※ 初手は人間（黒）の入力を待つ
     });
   </script>
 </body>
