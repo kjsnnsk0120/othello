@@ -78,6 +78,7 @@
             console.log(`${game.currentPlayer === Piece.Black ? "黒" : "白"}は打てる手がありません。パスします。`);
             game.currentPlayer = game.currentPlayer === Piece.Black ? Piece.White : Piece.Black;
             updateTurnDisplay();
+            advanceTurn();
           } else {
             if (game.currentPlayer === Piece.White) {
               setTimeout(computerMove, 500);
