@@ -1,5 +1,5 @@
 "use strict";
-// 石の状態を表す列挙型
+// ゲームのロジックを担当するクラス
 var Piece;
 (function (Piece) {
     Piece[Piece["Empty"] = 0] = "Empty";
@@ -23,35 +23,33 @@ class OthelloGame {
     inBounds(x, y) {
         return x >= 0 && x < this.boardSize && y >= 0 && y < this.boardSize;
     }
-    // 現在の盤面状態をもとに、指定座標でひっくり返せる石の一覧を返す
-    isValidMove(x, y, player) {
-        if (this.board[x][y] !== Piece.Empty)
+    // 盤面と座標・プレイヤーを指定して、ひっくり返す対象の石リストを返す共通処理
+    getFlippablePieces(board, x, y, player) {
+        if (board[x][y] !== Piece.Empty)
             return [];
         const opponent = player === Piece.Black ? Piece.White : Piece.Black;
-        const directions = [
-            { dx: -1, dy: -1 },
-            { dx: -1, dy: 0 },
-            { dx: -1, dy: 1 },
-            { dx: 0, dy: -1 },
-            { dx: 0, dy: 1 },
-            { dx: 1, dy: -1 },
-            { dx: 1, dy: 0 },
-            { dx: 1, dy: 1 }
-        ];
         let toFlip = [];
-        for (const { dx, dy } of directions) {
+        for (const { dx, dy } of OthelloGame.directions) {
             let nx = x + dx, ny = y + dy;
             let piecesToFlip = [];
-            while (this.inBounds(nx, ny) && this.board[nx][ny] === opponent) {
+            while (this.inBounds(nx, ny) && board[nx][ny] === opponent) {
                 piecesToFlip.push({ x: nx, y: ny });
                 nx += dx;
                 ny += dy;
             }
-            if (this.inBounds(nx, ny) && this.board[nx][ny] === player && piecesToFlip.length > 0) {
+            if (this.inBounds(nx, ny) && board[nx][ny] === player && piecesToFlip.length > 0) {
                 toFlip = toFlip.concat(piecesToFlip);
             }
         }
         return toFlip;
+    }
+    // 現在の盤面に対して、指定の手が有効ならひっくり返す対象の石リストを返す
+    isValidMove(x, y, player) {
+        return this.getFlippablePieces(this.board, x, y, player);
+    }
+    // 盤面指定版の isValidMove
+    isValidMoveOnBoard(board, x, y, player) {
+        return this.getFlippablePieces(board, x, y, player);
     }
     // 実際に手を打って盤面を更新する
     makeMove(x, y) {
@@ -66,12 +64,12 @@ class OthelloGame {
         this.currentPlayer = this.currentPlayer === Piece.Black ? Piece.White : Piece.Black;
         return true;
     }
-    // 指定プレイヤーの有効な手一覧を返す（現在の盤面）
+    // 指定プレイヤーの有効な手一覧を返す
     getValidMoves(player) {
         const moves = [];
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
-                if (this.board[i][j] === Piece.Empty && this.isValidMove(i, j, player).length > 0) {
+                if (this.board[i][j] === Piece.Empty && this.getFlippablePieces(this.board, i, j, player).length > 0) {
                     moves.push({ x: i, y: j });
                 }
             }
@@ -95,13 +93,13 @@ class OthelloGame {
     isGameOver() {
         return this.getValidMoves(Piece.Black).length === 0 && this.getValidMoves(Piece.White).length === 0;
     }
-    // ── 以下、評価関数関連 ──
-    // (1) 静的評価：マスごとの値を返す
+    // 以下、評価関数など
     getStaticValue(i, j) {
         if ((i === 0 && j === 0) || (i === 0 && j === 7) ||
             (i === 7 && j === 0) || (i === 7 && j === 7)) {
             return 10000;
         }
+        // XおよびCの評価値を下げる。ただし隅がすでにとられている場合はその限りではない。
         if (this.board[0][0] === Piece.Empty) {
             if (i === 1 && j === 1) {
                 return -700;
@@ -134,24 +132,14 @@ class OthelloGame {
                 return -500;
             }
         }
-        if ((i === 0 && (j === 2 || j === 5)) ||
-            (i === 7 && (j === 2 || j === 5)) ||
-            (j === 0 && (i === 2 || i === 5)) ||
-            (j === 7 && (i === 2 || i === 5))) {
-            return 10;
-        }
         if (i === 0 || i === 7 || j === 0 || j === 7) {
-            return 5;
+            return 10;
         }
         if (2 <= i && i <= 5 && 2 <= j && j <= 5) {
             return 3;
         }
         return -5;
     }
-    // (2) 石の安定性：自分の石なら
-    //　　- 角は +50
-    //　　- エッジ上なら +20
-    //　　- それ以外で隣接セルに空があれば -10、なければ +20
     getStability(i, j, board, player) {
         if (board[i][j] !== player)
             return 0;
@@ -162,80 +150,36 @@ class OthelloGame {
             }
             return 20;
         }
-        else {
-            // 隣接セルに空があれば不安定と判断
-            for (let di = -1; di <= 1; di++) {
-                for (let dj = -1; dj <= 1; dj++) {
-                    if (di === 0 && dj === 0)
-                        continue;
-                    const ni = i + di, nj = j + dj;
-                    if (this.inBounds(ni, nj) && board[ni][nj] === Piece.Empty) {
-                        return -10;
-                    }
-                }
+        for (const { dx, dy } of OthelloGame.directions) {
+            const ni = i + dx, nj = j + dy;
+            if (this.inBounds(ni, nj) && board[ni][nj] === Piece.Empty) {
+                return -10;
             }
-            return 20;
         }
+        return 20;
     }
-    // (3) フロンティア：隣接に空セルがあるなら -5、なければ +10
     getFrontier(i, j, board, player) {
         if (board[i][j] !== player)
             return 0;
-        for (let di = -1; di <= 1; di++) {
-            for (let dj = -1; dj <= 1; dj++) {
-                if (di === 0 && dj === 0)
-                    continue;
-                const ni = i + di, nj = j + dj;
-                if (this.inBounds(ni, nj) && board[ni][nj] === Piece.Empty) {
-                    return -5;
-                }
+        for (const { dx, dy } of OthelloGame.directions) {
+            const ni = i + dx, nj = j + dy;
+            if (this.inBounds(ni, nj) && board[ni][nj] === Piece.Empty) {
+                return -5;
             }
         }
         return 10;
     }
-    // (4) 着手可能手数（モビリティ）を、与えられた盤面で計算するための補助関数
     getValidMovesForBoard(board, player) {
         const moves = [];
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
-                if (board[i][j] === Piece.Empty && this.isValidMoveOnBoard(board, i, j, player).length > 0) {
+                if (board[i][j] === Piece.Empty && this.getFlippablePieces(board, i, j, player).length > 0) {
                     moves.push({ x: i, y: j });
                 }
             }
         }
         return moves;
     }
-    // 盤面指定版の isValidMove
-    isValidMoveOnBoard(board, x, y, player) {
-        if (board[x][y] !== Piece.Empty)
-            return [];
-        const opponent = player === Piece.Black ? Piece.White : Piece.Black;
-        const directions = [
-            { dx: -1, dy: -1 },
-            { dx: -1, dy: 0 },
-            { dx: -1, dy: 1 },
-            { dx: 0, dy: -1 },
-            { dx: 0, dy: 1 },
-            { dx: 1, dy: -1 },
-            { dx: 1, dy: 0 },
-            { dx: 1, dy: 1 }
-        ];
-        let toFlip = [];
-        for (const { dx, dy } of directions) {
-            let nx = x + dx, ny = y + dy;
-            let piecesToFlip = [];
-            while (this.inBounds(nx, ny) && board[nx][ny] === opponent) {
-                piecesToFlip.push({ x: nx, y: ny });
-                nx += dx;
-                ny += dy;
-            }
-            if (this.inBounds(nx, ny) && board[nx][ny] === player && piecesToFlip.length > 0) {
-                toFlip = toFlip.concat(piecesToFlip);
-            }
-        }
-        return toFlip;
-    }
-    // (5) パリティ：盤面上の空セル数に応じて +50（奇数なら有利）または -50（偶数なら不利）
     getParityScore(board) {
         let empty = 0;
         for (let i = 0; i < this.boardSize; i++) {
@@ -246,11 +190,9 @@ class OthelloGame {
         }
         return (empty % 2 === 1) ? 50 : -50;
     }
-    // 新たな評価関数：各要素を合算して評価値を算出する
     evaluateBoard(board, player) {
         const opponent = player === Piece.Black ? Piece.White : Piece.Black;
         let score = 0;
-        // (1) 静的評価
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
                 if (board[i][j] === player) {
@@ -261,7 +203,6 @@ class OthelloGame {
                 }
             }
         }
-        // (2) 石の安定性
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
                 if (board[i][j] === player) {
@@ -272,7 +213,6 @@ class OthelloGame {
                 }
             }
         }
-        // (3) フロンティア
         for (let i = 0; i < this.boardSize; i++) {
             for (let j = 0; j < this.boardSize; j++) {
                 if (board[i][j] === player) {
@@ -283,51 +223,23 @@ class OthelloGame {
                 }
             }
         }
-        // (4) モビリティ
         const myMoves = this.getValidMovesForBoard(board, player).length;
         const oppMoves = this.getValidMovesForBoard(board, opponent).length;
         score += (myMoves - oppMoves) * 3;
-        // (5) パリティ
         score += this.getParityScore(board);
         return score;
     }
-    // 与えられた盤面上で、手 (x, y) を player が打った場合のシミュレーション
     simulateMoveOnBoard(board, x, y, player) {
-        let newBoard = board.map(row => row.slice());
-        const opponent = player === Piece.Black ? Piece.White : Piece.Black;
-        const directions = [
-            { dx: -1, dy: -1 },
-            { dx: -1, dy: 0 },
-            { dx: -1, dy: 1 },
-            { dx: 0, dy: -1 },
-            { dx: 0, dy: 1 },
-            { dx: 1, dy: -1 },
-            { dx: 1, dy: 0 },
-            { dx: 1, dy: 1 }
-        ];
-        let totalFlips = [];
-        for (const { dx, dy } of directions) {
-            let nx = x + dx, ny = y + dy;
-            let flips = [];
-            while (nx >= 0 && nx < this.boardSize && ny >= 0 && ny < this.boardSize && newBoard[nx][ny] === opponent) {
-                flips.push({ x: nx, y: ny });
-                nx += dx;
-                ny += dy;
-            }
-            if (nx >= 0 && nx < this.boardSize && ny >= 0 && ny < this.boardSize && newBoard[nx][ny] === player && flips.length > 0) {
-                totalFlips = totalFlips.concat(flips);
-            }
-        }
-        if (totalFlips.length === 0)
+        const newBoard = board.map(row => row.slice());
+        const flips = this.getFlippablePieces(newBoard, x, y, player);
+        if (flips.length === 0)
             return { newBoard, flipCount: 0 };
         newBoard[x][y] = player;
-        for (const pos of totalFlips) {
+        for (const pos of flips) {
             newBoard[pos.x][pos.y] = player;
         }
-        return { newBoard, flipCount: totalFlips.length };
+        return { newBoard, flipCount: flips.length };
     }
-    // コンピュータ用に、最良の手を選ぶ
-    // ※序盤（全石数 < 20）の場合、ひっくり返す石数にペナルティ (×3) を加味
     getBestMove(player) {
         const validMoves = this.getValidMoves(player);
         if (validMoves.length === 0)
@@ -349,5 +261,115 @@ class OthelloGame {
             }
         }
         return bestMove;
+    }
+}
+// 全メソッドで再利用する方向ベクトル
+OthelloGame.directions = [
+    { dx: -1, dy: -1 },
+    { dx: -1, dy: 0 },
+    { dx: -1, dy: 1 },
+    { dx: 0, dy: -1 },
+    { dx: 0, dy: 1 },
+    { dx: 1, dy: -1 },
+    { dx: 1, dy: 0 },
+    { dx: 1, dy: 1 }
+];
+// UI関連の処理（レンダリング、イベントハンドリング、ターン管理など）をまとめたクラス
+class OthelloUI {
+    constructor() {
+        this.game = new OthelloGame();
+        const boardEl = document.getElementById("board");
+        const turnEl = document.getElementById("turn");
+        if (!boardEl || !turnEl) {
+            throw new Error("Board または Turn 要素が見つかりません。");
+        }
+        this.boardElement = boardEl;
+        this.turnElement = turnEl;
+    }
+    start() {
+        this.renderBoard();
+        this.updateTurnDisplay();
+        // コンピュータの手番なら最初から処理開始
+        if (this.game.currentPlayer === Piece.White) {
+            this.computerMove();
+        }
+    }
+    updateTurnDisplay() {
+        const current = this.game.currentPlayer === Piece.Black ? "黒（人間）" : "白（コンピュータ）";
+        this.turnElement.innerText = `現在の手番: ${current}`;
+    }
+    checkGameOver() {
+        const { black, white } = this.game.countPieces();
+        const total = black + white;
+        if (this.game.isGameOver() || total === this.game.boardSize * this.game.boardSize) {
+            const msg = `ゲーム終了！ 黒: ${black}、白: ${white}`;
+            console.log(msg);
+            alert(msg);
+            return true;
+        }
+        return false;
+    }
+    advanceTurn() {
+        setTimeout(() => {
+            if (this.checkGameOver())
+                return;
+            if (this.game.getValidMoves(this.game.currentPlayer).length === 0) {
+                const msg = `${this.game.currentPlayer === Piece.Black ? "黒" : "白"}は打てる手がありません。パスします。`;
+                console.log(msg);
+                alert(msg);
+                this.game.currentPlayer = this.game.currentPlayer === Piece.Black ? Piece.White : Piece.Black;
+                this.renderBoard();
+                this.updateTurnDisplay();
+                this.advanceTurn();
+            }
+            else if (this.game.currentPlayer === Piece.White) {
+                this.computerMove();
+            }
+        }, 50);
+    }
+    renderBoard() {
+        this.boardElement.innerHTML = "";
+        for (let i = 0; i < this.game.boardSize; i++) {
+            const rowDiv = document.createElement("div");
+            rowDiv.className = "row";
+            for (let j = 0; j < this.game.boardSize; j++) {
+                const cellDiv = document.createElement("div");
+                cellDiv.className = "cell";
+                cellDiv.dataset.x = i.toString();
+                cellDiv.dataset.y = j.toString();
+                const piece = this.game.board[i][j];
+                if (piece === Piece.Black || piece === Piece.White) {
+                    const stone = document.createElement("div");
+                    stone.className = "stone";
+                    stone.style.backgroundColor = piece === Piece.Black ? "black" : "white";
+                    cellDiv.appendChild(stone);
+                }
+                if (this.game.currentPlayer === Piece.Black && piece === Piece.Empty) {
+                    cellDiv.addEventListener("click", () => {
+                        if (this.game.makeMove(i, j)) {
+                            this.renderBoard();
+                            this.updateTurnDisplay();
+                            this.advanceTurn();
+                        }
+                    });
+                }
+                rowDiv.appendChild(cellDiv);
+            }
+            this.boardElement.appendChild(rowDiv);
+        }
+    }
+    computerMove() {
+        if (this.game.currentPlayer !== Piece.White)
+            return;
+        const bestMove = this.game.getBestMove(Piece.White);
+        if (bestMove) {
+            this.game.makeMove(bestMove.x, bestMove.y);
+        }
+        else {
+            this.game.currentPlayer = Piece.Black;
+        }
+        this.renderBoard();
+        this.updateTurnDisplay();
+        this.advanceTurn();
     }
 }
