@@ -345,7 +345,9 @@ class OthelloUI {
         this.updateTurnDisplay();
         this.advanceTurn();
       } else if (this.game.currentPlayer === Piece.White) {
-        this.computerMove();
+        setTimeout(() => {
+          this.computerMove();
+        }, 500);
       }
     }, 50);
   }
